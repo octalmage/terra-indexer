@@ -83,7 +83,6 @@ module.exports = async function (job) {
           contracts.push(event);
         } else {
           if (event.type === "wasm") {
-            console.log(event);
             const { value: contractAddress } = event.attributes.find(
               (item) => item.key === "contract_address"
             );
