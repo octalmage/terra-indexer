@@ -36,7 +36,7 @@ module.exports = async function (job) {
 
   const existingNFTs = await nftCollection.find().distinct("address");
 
-  const blockData = await lcd.tendermint.blockInfo(4851088);
+  const blockData = await lcd.tendermint.blockInfo(job.data.block);
 
   const { txs } = blockData.block.data;
   const txhashes = txs.map((txdata) => hashToHex(txdata));
