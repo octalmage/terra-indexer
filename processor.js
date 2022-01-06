@@ -71,9 +71,12 @@ module.exports = async function (job) {
   }
 
   const allHashes = [...initMessages, ...execMessages];
+  job.log(`total tx found: ${allHashes.length}`);
   const txInfos = await Promise.all(
     allHashes.map((txhash) => lcd.tx.txInfo(txhash))
   );
+
+  job.log(`txInfos fetched`);
 
   const newContracts = txInfos.map((item) => {
     return item.logs.map((log) => {
