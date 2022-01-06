@@ -10,6 +10,10 @@ const hashToHex = (data) => {
   return SHA256.hash(Base64.parse(data)).toString().toUpperCase();
 };
 
+const serial = funcs =>
+    funcs.reduce((promise, func) =>
+        promise.then(result => func().then(Array.prototype.concat.bind(result))), Promise.resolve([]))
+
 const getLCD = async () => {
   return new LCDClient({
     URL: environment[env].lcd,
@@ -71,12 +75,16 @@ module.exports = async function (job) {
   }
 
   const allHashes = [...initMessages, ...execMessages];
-  job.log(`total tx found: ${allHashes.length}`);
-  const txInfos = await Promise.all(
-    allHashes.map((txhash) => lcd.tx.txInfo(txhash))
+  const uniqueHashes = [...new Set(allHashes)];
+  console.log(`total tx found: ${uniqueHashes.length}`);
+  const txInfos = await serial(
+    uniqueHashes.map((txhash) => () => {
+      console.log(`processing tx: ${txhash}`);
+      return lcd.tx.txInfo(txhash)
+    })
   );
 
-  job.log(`txInfos fetched`);
+  console.log(`txInfos fetched`);
 
   const newContracts = txInfos.map((item) => {
     return item.logs.map((log) => {
