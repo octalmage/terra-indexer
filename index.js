@@ -3,43 +3,45 @@ const WebSocketClient = require("websocket").client;
 const mongoose = require("mongoose");
 const path = require("path");
 const { block } = require("./models");
-const Arena = require('bull-arena');
-const Bull = require('bull');
+const Arena = require("bull-arena");
+const Bull = require("bull");
 const Queue = require("bull");
-const { environment } = require('./config/config');
+const { environment } = require("./config/config");
 
 const env = process.env.NODE_ENV || "development";
 
-Arena({
+Arena(
+  {
     Bull,
-  queues: [
-    {
-      type: 'bull',
+    queues: [
+      {
+        type: "bull",
 
-      // Name of the bull queue, this name must match up exactly with what you've defined in bull.
-      name: "processContractInit",
+        // Name of the bull queue, this name must match up exactly with what you've defined in bull.
+        name: "processContractInit",
 
-      // Hostname or queue prefix, you can put whatever you want.
-      hostId: "macbook",
-    },
-  ],
-},
-{
-  // Make the arena dashboard become available at {my-site.com}/arena.
-  basePath: '/arena',
-});
+        // Hostname or queue prefix, you can put whatever you want.
+        hostId: "macbook",
+      },
+    ],
+  },
+  {
+    // Make the arena dashboard become available at {my-site.com}/arena.
+    basePath: "/arena",
+  }
+);
 
 const queueSettings = {
-    attempts: 10,
-    backoff: { type: 'exponential', delay: 30000 },
+  attempts: 10,
+  backoff: { type: "exponential", delay: 30000 },
 };
 
-const contractQueue = new Queue("processContractInit", { 
-    limiter: {
-        max: 1000000,
-        duration: 60000,
-        bounceBack: true,
-    }
+const contractQueue = new Queue("processContractInit", {
+  limiter: {
+    max: 1000000,
+    duration: 60000,
+    bounceBack: true,
+  },
 });
 
 const RPC_URL = environment[env].rpc;
@@ -90,21 +92,26 @@ const main = async () => {
     });
   });
 
+  client.connect(`${RPC_URL}/websocket`);
+
   contractQueue.process(16, path.join(__dirname, "processor.js"));
 
-  let checkBlock = START_BLOCK;
+  
 
   // Wait for at least 1 block.
-  await new Promise((resolve => setTimeout(resolve, 10000)));
+  await new Promise((resolve) => setTimeout(resolve, 10000));
 
+  
+  const max = 6324635;
+
+  let checkBlock = (await block.find().sort({ height: -1 }).limit(1))[0].height;;
   let exists = await block.exists({ height: checkBlock });
   while (exists) {
     console.log(`already indexed: ${checkBlock}`);
     checkBlock++;
-    exists = await block.exists({ height: checkBlock })
+    exists = await block.exists({ height: checkBlock });
   }
 
-  const max = (await block.find().sort({ height: -1 }).limit(1))[0].height;
   let synced = checkBlock >= max;
 
   while (!synced) {
@@ -112,10 +119,10 @@ const main = async () => {
       {
         block: checkBlock,
       },
-      { 
-          ...queueSettings,
-        priority: 2, 
-        }
+      {
+        ...queueSettings,
+        priority: 2,
+      }
     );
     checkBlock++;
 
@@ -127,16 +134,12 @@ const main = async () => {
     const waitingCount = await contractQueue.getWaitingCount();
 
     if (delayedCount >= 100 || waitingCount >= 100) {
-        console.log('sleeping for a minute, queue backed up');
-        await new Promise((resolve => setTimeout(resolve, 30000)));
+      console.log("sleeping for a minute, queue backed up");
+      await new Promise((resolve) => setTimeout(resolve, 30000));
     }
 
-    await new Promise((resolve => setTimeout(resolve, 100)));
-
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
-
-  // Connect after syncing.
-  client.connect(`${RPC_URL}/websocket`);
 };
 
 main();

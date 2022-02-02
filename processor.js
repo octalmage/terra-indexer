@@ -184,13 +184,22 @@ module.exports = async function (job) {
 
     try {
       // Test to see if the nft_info interface exists.
-      await lcd.wasm.contractQuery(contract.address, {
-        nft_info: {
-          token_id: "1",
-        },
-      });
+      try {
+        await lcd.wasm.contractQuery(contract.address, {
+          nft_info: {
+            token_id: "1",
+          },
+        });
+      } finally {
+        // No nft_info, lets try metadata_u_r_i which Talis uses.
+        await lcd.wasm.contractQuery(contract.address, {
+          metadata_u_r_i: {
+            token_id: "1",
+          },
+        });
+      }
     } catch (e) {
-      if (e.response.data.message.includes("unknown variant `nft_info")) {
+      if (e.response.data.message.includes("unknown variant `metadata_u_r_i")) {
         return;
       }
     }
