@@ -104,14 +104,15 @@ const main = async () => {
   
   const max = 6324635;
 
-  let checkBlock = (await block.find().sort({ height: -1 }).limit(1))[0].height;;
+  let checkBlock = START_BLOCK;
   let exists = await block.exists({ height: checkBlock });
   while (exists) {
     console.log(`already indexed: ${checkBlock}`);
-    checkBlock++;
+    checkBlock += 100;
     exists = await block.exists({ height: checkBlock });
   }
 
+  checkBlock -= 100;
   let synced = checkBlock >= max;
 
   while (!synced) {
