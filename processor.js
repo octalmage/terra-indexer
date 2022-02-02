@@ -98,11 +98,12 @@ module.exports = async function (job) {
               (item) => item.key === "contract_address"
             );
 
-            const { value: action } = event.attributes.find(
+            const actions = event.attributes.filter(
               (item) => item.key === "action"
-            );
+            ).map(item => item.value);
+
             if (
-              ["mint", "mint_nft", "transfer_nft", "send_nft"].includes(action)
+              ["mint", "mint_nft", "transfer_nft", "send_nft"].some(r=> actions.includes(r))
             ) {
               const tokens = [];
 
