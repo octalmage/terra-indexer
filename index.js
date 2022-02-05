@@ -47,7 +47,7 @@ const contractQueue = new Queue("processContractInit", {
 const RPC_URL = environment[env].rpc;
 
 // Taken from https://github.com/etfinder/fcd/blob/col-5-seed/columbus-5.sh#L71
-const START_BLOCK = 4749516;
+const START_BLOCK = 6000000;
 
 const client = new WebSocketClient();
 
@@ -94,9 +94,7 @@ const main = async () => {
 
   client.connect(`${RPC_URL}/websocket`);
 
-  contractQueue.process(16, path.join(__dirname, "processor.js"));
-
-  
+  contractQueue.process(8, path.join(__dirname, "processor.js"));
 
   // Wait for at least 1 block.
   await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -108,11 +106,13 @@ const main = async () => {
   let exists = await block.exists({ height: checkBlock });
   while (exists) {
     console.log(`already indexed: ${checkBlock}`);
-    checkBlock += 100;
+    checkBlock += 1000;
     exists = await block.exists({ height: checkBlock });
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
-  checkBlock -= 100;
+  checkBlock -= 1000;
+  
   let synced = checkBlock >= max;
 
   while (!synced) {
@@ -139,7 +139,7 @@ const main = async () => {
       await new Promise((resolve) => setTimeout(resolve, 30000));
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 };
 
