@@ -85,7 +85,6 @@ const main = async () => {
             `queue block: ${data.result.data.value.block.header.height}`
           );
           contractQueue.add(
-            `${data.result.data.value.block.header.height}`,
             {
               block: data.result.data.value.block.header.height,
             },
@@ -121,7 +120,6 @@ const main = async () => {
 
   while (!synced) {
     contractQueue.add(
-      `${data.result.data.value.block.header.height}`,
       {
         block: checkBlock,
       },
