@@ -42,6 +42,9 @@ const contractQueue = new Queue("processContractInit", {
     duration: 60000,
     bounceBack: true,
   },
+  defaultJobOptions: {
+    stackTraceLimit: 500,
+  }
 });
 
 const RPC_URL = environment[env].rpc;
@@ -82,6 +85,7 @@ const main = async () => {
             `queue block: ${data.result.data.value.block.header.height}`
           );
           contractQueue.add(
+            `${data.result.data.value.block.header.height}`,
             {
               block: data.result.data.value.block.header.height,
             },
@@ -117,6 +121,7 @@ const main = async () => {
 
   while (!synced) {
     contractQueue.add(
+      `${data.result.data.value.block.header.height}`,
       {
         block: checkBlock,
       },

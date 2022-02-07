@@ -5,14 +5,18 @@ const { SHA256 } = require("jscrypto/SHA256");
 const { Base64 } = require("jscrypto/Base64");
 const { environment } = require("./config/config");
 const env = process.env.NODE_ENV || "development";
-
 const hashToHex = (data) => {
   return SHA256.hash(Base64.parse(data)).toString().toUpperCase();
 };
 
-const serial = funcs =>
-    funcs.reduce((promise, func) =>
-        promise.then(result => func().then(Array.prototype.concat.bind(result))), Promise.resolve([]))
+const serial = (funcs) =>
+  funcs.reduce(
+    (promise, func) =>
+      promise.then((result) =>
+        func().then(Array.prototype.concat.bind(result))
+      ),
+    Promise.resolve([])
+  );
 
 const getLCD = async () => {
   return new LCDClient({
@@ -36,12 +40,14 @@ module.exports = async function (job) {
     return job.discard();
   }
 
+  await job.log("starting to fetch");
+
   const lcd = await getLCD();
 
   const existingNFTs = await nftCollection.find().distinct("address");
 
   const blockData = await lcd.tendermint.blockInfo(job.data.block);
-
+  await job.log("got block data");
   const { txs } = blockData.block.data;
   const txhashes = txs.map((txdata) => hashToHex(txdata));
   const unpackedTX = blockData.block.data.txs.map((tx) => {
@@ -80,11 +86,11 @@ module.exports = async function (job) {
   const txInfos = await serial(
     uniqueHashes.map((txhash) => () => {
       console.log(`processing tx: ${txhash}`);
-      return lcd.tx.txInfo(txhash)
+      return lcd.tx.txInfo(txhash);
     })
   );
 
-  console.log(`txInfos fetched`);
+  job.log(`txInfos fetched`);
 
   const newContracts = txInfos.map((item) => {
     return item.logs.map((log) => {
@@ -98,12 +104,14 @@ module.exports = async function (job) {
               (item) => item.key === "contract_address"
             );
 
-            const actions = event.attributes.filter(
-              (item) => item.key === "action"
-            ).map(item => item.value);
+            const actions = event.attributes
+              .filter((item) => item.key === "action")
+              .map((item) => item.value);
 
             if (
-              ["mint", "mint_nft", "transfer_nft", "send_nft"].some(r=> actions.includes(r))
+              ["mint", "mint_nft", "transfer_nft", "send_nft"].some((r) =>
+                actions.includes(r)
+              )
             ) {
               const tokens = [];
 
@@ -113,19 +121,36 @@ module.exports = async function (job) {
                 }
               });
               for (let tokenID of tokens) {
-                const nftInfo = await lcd.wasm.contractQuery(contractAddress, {
-                  nft_info: {
-                    token_id: tokenID,
-                  },
-                });
-                const ownerOf = await lcd.wasm.contractQuery(contractAddress, {
-                  owner_of: {
-                    token_id: tokenID,
-                  },
-                });
+                let nftInfo;
+                try {
+                  nftInfo = await lcd.wasm.contractQuery(contractAddress, {
+                    nft_info: {
+                      token_id: tokenID,
+                    },
+                  });
+                } catch (e) {
+                  // NOOP
+                  job.log(`no nft_info for ${contractAddress}`);
+                }
+                let ownerOf;
+                try {
+                  ownerOf = await lcd.wasm.contractQuery(contractAddress, {
+                    owner_of: {
+                      token_id: tokenID,
+                    },
+                  });
+                } catch (e) {
+                  job.log(`no owner for ${contractAddress}`);
+                  continue;
+                }
 
                 let newNFT;
-                if (typeof nftInfo.extension !== "undefined") {
+                if (!nftInfo) {
+                  newNFT = {
+                    owner: ownerOf.owner,
+                    address: contractAddress,
+                  };
+                } else if (typeof nftInfo.extension !== "undefined") {
                   newNFT = {
                     name: nftInfo.extension?.name,
                     token_id: tokenID,
